@@ -1,4 +1,4 @@
-name: android_project_build
+name: android_build
 
 on:
   workflow_dispatch:
@@ -24,17 +24,24 @@ jobs:
       - name: Clone project
         run: git clone --depth=1 ${{ steps.get-project.outputs.PROJECT }} project
 
+      # 关键: runner 预装的是 Gradle 9.x, 直接用它跑 AGP 8.1 会在配置阶段就崩
+      # (DependencyHandler.module 在 Gradle 9 已移除)。这里把 Gradle 钉到与 AGP 8 兼容的 8.5。
+      - name: Setup Gradle 8.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.5
+          cache-read-only: true
+
       - name: Build the app
         working-directory: ./project
         run: |
-          # 项目若自带 gradlew 就沿用它自己的 Gradle 版本;
-          # 否则用 runner 的 gradle 生成 wrapper, 但显式钉到与 AGP 8 兼容的 8.5
-          # (runner 预装的是 Gradle 9.x, 直接 gradle wrapper 会生成不兼容的 9.x)
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.5 --distribution-type bin
+          # 有 gradlew 就用项目自带 wrapper; 没有则直接用已安装的 Gradle 8.5 构建
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
           fi
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
