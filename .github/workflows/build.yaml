@@ -1,4 +1,4 @@
-name: android_build
+name: android_project_build
 
 on:
   workflow_dispatch:
@@ -27,7 +27,12 @@ jobs:
       - name: Build the app
         working-directory: ./project
         run: |
-          if [ ! -f "gradlew" ]; then gradle wrapper; fi
+          # 项目若自带 gradlew 就沿用它自己的 Gradle 版本;
+          # 否则用 runner 的 gradle 生成 wrapper, 但显式钉到与 AGP 8 兼容的 8.5
+          # (runner 预装的是 Gradle 9.x, 直接 gradle wrapper 会生成不兼容的 9.x)
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper --gradle-version 8.5 --distribution-type bin
+          fi
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
@@ -37,4 +42,3 @@ jobs:
           name: z5q-debug-apk
           path: project/**/*.apk
           if-no-files-found: error
-
